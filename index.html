@@ -688,7 +688,7 @@ function showDay(i){
   if(isFood){
     document.getElementById('foodCard').classList.add('show');
     document.getElementById('foodBtn').classList.add('active');
-    if(DAYS[0]) document.documentElement.style.setProperty('--daycolor', DAYS[0].color);
+    document.documentElement.style.setProperty('--daycolor', '#3dd6c8');
   } else {
     const cards=document.querySelectorAll('.daycard');
     if(cards[i]) cards[i].classList.add('show');
