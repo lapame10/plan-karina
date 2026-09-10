@@ -359,14 +359,12 @@ async function cloudLoad(){
       if(d&&typeof d==='object'&&Object.keys(d).length){
         if(JSON.stringify(d)!==JSON.stringify(logs)){
           logs=d; localStorage.setItem(LS,JSON.stringify(logs));
-          if(!sessionStorage.getItem('cr')){
-            sessionStorage.setItem('cr','1');
-            location.reload();
-          }
+          return true;   // FIX: avisar en vez de recargar
         }
       }
     }
   }catch(e){}
+  return false;
 }
 function syncCloud(){
   clearTimeout(_syncT);
@@ -642,7 +640,6 @@ document.addEventListener('click',function(e){
     if(w.classList.contains('open')) renderPRs();
   }
 });
-cloudLoad();
 
 function weekKey(dayId, exIdx){ return dayId+'_'+exIdx; }
 
@@ -664,7 +661,10 @@ DAYS.forEach((d,i)=>{
 })();
 
 const daysEl = document.getElementById('days');
-DAYS.forEach((d,di)=>{
+let _currentDay = 0;
+function renderDays(){
+  daysEl.innerHTML='';
+  DAYS.forEach((d,di)=>{
   const card=document.createElement('div');
   card.className='daycard'+(di===0?' show':'');
   card.id=d.id;
@@ -723,7 +723,10 @@ DAYS.forEach((d,di)=>{
       box.appendChild(row);
     });
   });
-});
+  });
+  bindEx();
+  if (typeof showDay === 'function') showDay(_currentDay);
+}
 
 function saveCell(key,w,idx,val){
   if(!logs[key]) logs[key]={};
@@ -736,6 +739,7 @@ function saveCell(key,w,idx,val){
   syncCloud();
 }
 // tocar ejercicio = acordeon: abre el suyo y cierra los demas del dia
+function bindEx(){
 document.querySelectorAll('.ex').forEach(ex=>{
   ex.addEventListener('click',e=>{
     if(e.target.closest('.wrows')||e.target.closest('.vidbtn')||e.target.isContentEditable) return;
@@ -759,8 +763,10 @@ document.querySelectorAll('.ex').forEach(ex=>{
     }
   });
 });
+}
 
 function showDay(i){
+  if(typeof i === 'number') _currentDay = i;
   const isFood=(i==='food');
   document.querySelectorAll('.daycard').forEach(c=>c.classList.remove('show'));
   document.querySelectorAll('.daybtn').forEach(b=>b.classList.remove('active'));
@@ -850,6 +856,18 @@ document.getElementById('tReset').onclick=()=>{ stopT(); left=0; doneSets=0; ren
 document.getElementById('sMinus').onclick=()=>{ if(setsTotal>1){setsTotal--; setNumEl.textContent=setsTotal; doneSets=0; renderProg();} };
 document.getElementById('sPlus').onclick=()=>{ if(setsTotal<12){setsTotal++; setNumEl.textContent=setsTotal; doneSets=0; renderProg();} };
 renderClock(); renderProg();
+
+/* ============================================================
+   ARRANQUE
+   Antes: las celdas se pintaban con los datos LOCALES y cloudLoad()
+   llegaba despues (async) sin repintar -> la tabla salia vacia aunque
+   los registros estuvieran en la nube. Ahora se repinta al llegar.
+   ============================================================ */
+renderDays();
+renderPRs();
+cloudLoad().then(function(cambio){
+  if(cambio){ renderDays(); renderPRs(); }
+});
 </script>
 </body>
 </html>
