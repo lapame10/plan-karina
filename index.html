@@ -66,6 +66,19 @@
   .ex .cyc{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--daycolor,var(--orange));
     background:color-mix(in srgb, var(--daycolor, #ff8a3d) 14%, transparent);padding:4px 9px;border-radius:8px;white-space:nowrap;}
   .ex .cyc.alt{color:var(--daycolor,var(--orange));background:color-mix(in srgb, var(--daycolor, #ff8a3d) 9%, transparent);border:1px solid color-mix(in srgb, var(--daycolor, #ff8a3d) 35%, transparent);}
+  /* CAMINATA */
+  .walkblock{margin:16px 16px 0;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;}
+  .walkhead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;}
+  .walkhead b{font-size:14px;}
+  .walkhead span{font-size:10.5px;color:var(--dim);}
+  .walkrow{display:grid;grid-template-columns:56px 1fr 18px 1fr;gap:5px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);}
+  .walkrow .wd{font-family:var(--mono);font-size:10.5px;font-weight:800;color:var(--dim);}
+  .walkrow input{width:100%;background:rgba(255,255,255,.04);border:1px solid transparent;outline:none;color:#fff;
+    font-family:var(--mono);font-size:15px;text-align:center;padding:6px 4px;border-radius:8px;min-width:0;}
+  .walkrow input:focus{border-color:var(--daycolor,var(--orange));}
+  .walkrow input::placeholder{color:#3c3c48;font-size:12px;}
+  .walkrow .wx{color:#4a4a58;font-size:10px;text-align:center;}
+  .walkrow.done input{background:rgba(61,214,140,.08);color:var(--green);}
   /* RECORDS + TOAST */
   #prWrap{margin:16px 16px 24px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);
     border-radius:14px;overflow:hidden;}
@@ -103,7 +116,7 @@
   /* LOG ROWS */
   .wrows{display:none;margin-top:10px;border-top:1px dashed var(--line);padding-top:6px;}
   .wrows.open{display:block;}
-  .wrow{display:grid;grid-template-columns:38px 1fr 18px 1fr;gap:4px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+  .wrow{display:grid;grid-template-columns:56px 1fr 18px 1fr;gap:4px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);}
   .wrow .wk{font-family:var(--mono);font-size:10.5px;font-weight:800;color:var(--dim);letter-spacing:.5px;}
   .wrow input{width:100%;background:rgba(255,255,255,.04);border:1px solid transparent;outline:none;color:#fff;
     font-family:var(--mono);font-size:16px;text-align:center;padding:7px 4px;border-radius:9px;min-width:0;}
@@ -195,6 +208,11 @@
 
 <div id="days"></div>
 
+<div class="walkblock">
+  <div class="walkhead"><b>🚶 Caminata diaria</b><span>distancia y tiempo</span></div>
+  <div id="walkRows"></div>
+</div>
+
 <div id="timerWrap">
   <div id="timerCircle">
     <svg viewBox="0 0 210 210">
@@ -259,7 +277,7 @@ const DAYS = [
    {n:'Estiramientos', sr:'5 min', cyc:60},
  ]},
 ];
-const WEEKS = ['S1','S2','S3','S4','S5','S6','S7','S8'];
+const WEEKS = ['Sem 1','Sem 2','Sem 3','Sem 4','Sem 5','Sem 6','Sem 7','Sem 8'];
 /* Peso base: empezar ligero (sin datos previos) */
 const HIST = {};
 function baseInfo(n){ return HIST[n]||null; }
@@ -397,6 +415,49 @@ function renderCongrats(){
   box.innerHTML=hits.map(function(h){var nm=h.nm, v=h.v; return '🏆 <b>¡Felicidades!</b> Ayer lograste un PR en <b>'+nm+'</b>: <b>'+v+'</b>. ¡Sigue así! 💪';}).join('');
   box.style.display='block';
 }
+
+
+/* ====== CAMINATA (Karina) ====== */
+const WALKD=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+let walk=JSON.parse(localStorage.getItem('walkKarina')||'{}');
+function renderWalk(){
+  const box=document.getElementById('walkRows'); if(!box) return;
+  box.innerHTML='';
+  WALKD.forEach(function(d){
+    const row=document.createElement('div'); row.className='walkrow';
+    const n=document.createElement('div'); n.className='wd'; n.textContent=d;
+    const mk=function(k,ph,mode){
+      const i=document.createElement('input'); i.type='text'; i.inputMode=mode; i.placeholder=ph;
+      i.value=(walk[d]&&walk[d][k])||'';
+      i.addEventListener('click',function(e){e.stopPropagation();});
+      i.addEventListener('input',function(){
+        walk[d]=walk[d]||{}; walk[d][k]=i.value.trim();
+        localStorage.setItem('walkKarina',JSON.stringify(walk));
+        row.classList.toggle('done', !!(walk[d].km&&walk[d].min));
+        syncWalk();
+      });
+      return i;
+    };
+    const x=document.createElement('div'); x.className='wx'; x.textContent='/';
+    row.appendChild(n); row.appendChild(mk('km','km','decimal')); row.appendChild(x); row.appendChild(mk('min','min','numeric'));
+    box.appendChild(row);
+  });
+}
+let _wT=null;
+function syncWalk(){
+  clearTimeout(_wT);
+  _wT=setTimeout(async function(){
+    try{ await fetch(RTDB+'/'+CLOUD+'/walk.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(walk)}); }catch(e){}
+  },700);
+}
+async function walkLoad(){
+  try{
+    const r=await fetch(RTDB+'/'+CLOUD+'/walk.json',{cache:'no-store'});
+    if(r.ok){ const d=await r.json(); if(d&&typeof d==='object'&&Object.keys(d).length){ walk=d; localStorage.setItem('walkKarina',JSON.stringify(walk)); } }
+  }catch(e){}
+  renderWalk();
+}
+walkLoad();
 
 prLoad();
 document.addEventListener('click',function(e){
