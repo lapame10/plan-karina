@@ -67,6 +67,11 @@
     background:color-mix(in srgb, var(--daycolor, #ff8a3d) 14%, transparent);padding:4px 9px;border-radius:8px;white-space:nowrap;}
   .ex .cyc.alt{color:var(--daycolor,var(--orange));background:color-mix(in srgb, var(--daycolor, #ff8a3d) 9%, transparent);border:1px solid color-mix(in srgb, var(--daycolor, #ff8a3d) 35%, transparent);}
   /* CAMINATA */
+  .walkweeks{display:flex;gap:5px;overflow-x:auto;margin-bottom:10px;padding-bottom:2px;}
+  .wchip{flex:0 0 auto;background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--dim);
+    border-radius:8px;padding:5px 9px;font-family:var(--mono);font-size:10.5px;font-weight:800;cursor:pointer;}
+  .wchip.on{background:color-mix(in srgb, var(--daycolor,#ff8a3d) 18%, transparent);color:#fff;
+    border-color:color-mix(in srgb, var(--daycolor,#ff8a3d) 50%, transparent);}
   .walkblock{margin:16px 16px 0;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;}
   .walkhead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;}
   .walkhead b{font-size:14px;}
@@ -210,6 +215,7 @@
 
 <div class="walkblock">
   <div class="walkhead"><b>🚶 Caminata diaria</b><span>distancia y tiempo</span></div>
+  <div class="walkweeks" id="walkWeeks"></div>
   <div id="walkRows"></div>
 </div>
 
@@ -417,23 +423,39 @@ function renderCongrats(){
 }
 
 
-/* ====== CAMINATA (Karina) ====== */
+/* ====== CAMINATA (Karina) - por semana ====== */
 const WALKD=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+const WALKW=['Sem 1','Sem 2','Sem 3','Sem 4','Sem 5','Sem 6','Sem 7','Sem 8'];
 let walk=JSON.parse(localStorage.getItem('walkKarina')||'{}');
+let walkWeek='Sem 1';
+function renderWalkWeeks(){
+  const box=document.getElementById('walkWeeks'); if(!box) return;
+  box.innerHTML='';
+  WALKW.forEach(function(w){
+    const b=document.createElement('button');
+    b.className='wchip'+(w===walkWeek?' on':''); b.textContent=w;
+    b.addEventListener('click',function(e){ e.stopPropagation(); walkWeek=w; renderWalkWeeks(); renderWalk(); });
+    box.appendChild(b);
+  });
+}
 function renderWalk(){
   const box=document.getElementById('walkRows'); if(!box) return;
   box.innerHTML='';
+  const wk=walk[walkWeek]||{};
   WALKD.forEach(function(d){
     const row=document.createElement('div'); row.className='walkrow';
+    const cur=wk[d]||{};
+    if(cur.km&&cur.min) row.classList.add('done');
     const n=document.createElement('div'); n.className='wd'; n.textContent=d;
     const mk=function(k,ph,mode){
       const i=document.createElement('input'); i.type='text'; i.inputMode=mode; i.placeholder=ph;
-      i.value=(walk[d]&&walk[d][k])||'';
+      i.value=cur[k]||'';
       i.addEventListener('click',function(e){e.stopPropagation();});
       i.addEventListener('input',function(){
-        walk[d]=walk[d]||{}; walk[d][k]=i.value.trim();
+        walk[walkWeek]=walk[walkWeek]||{}; walk[walkWeek][d]=walk[walkWeek][d]||{}; walk[walkWeek][d][k]=i.value.trim();
         localStorage.setItem('walkKarina',JSON.stringify(walk));
-        row.classList.toggle('done', !!(walk[d].km&&walk[d].min));
+        const w=walk[walkWeek][d];
+        row.classList.toggle('done', !!(w.km&&w.min));
         syncWalk();
       });
       return i;
@@ -455,7 +477,7 @@ async function walkLoad(){
     const r=await fetch(RTDB+'/'+CLOUD+'/walk.json',{cache:'no-store'});
     if(r.ok){ const d=await r.json(); if(d&&typeof d==='object'&&Object.keys(d).length){ walk=d; localStorage.setItem('walkKarina',JSON.stringify(walk)); } }
   }catch(e){}
-  renderWalk();
+  renderWalkWeeks(); renderWalk();
 }
 walkLoad();
 
